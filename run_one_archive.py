@@ -2,7 +2,17 @@
 import os
 import tarfile
 import tempfile
-from main import get_archive_links, download_file, process_audio, generate_tts, engines, OUT_REAL, OUT_FAKE, TARGET_SR
+from main import (
+    OUT_FAKE,
+    OUT_REAL,
+    TARGET_SR,
+    download_file,
+    engines,
+    generate_tts,
+    get_archive_links,
+    process_audio,
+    safe_extract_tar,
+)
 import soundfile as sf
 
 
@@ -20,7 +30,7 @@ def run_one(limit_utts=5):
             path = os.path.join(tmpdir, "tmp.tgz")
             download_file(l, path)
             with tarfile.open(path) as tar:
-                tar.extractall(tmpdir)
+                safe_extract_tar(tar, tmpdir)
             extracted = [d for d in os.listdir(tmpdir) if os.path.isdir(os.path.join(tmpdir, d)) and d != "__MACOSX"]
             if not extracted:
                 continue
@@ -53,7 +63,7 @@ def run_one(limit_utts=5):
         download_file(link, archive_path)
 
         with tarfile.open(archive_path) as tar:
-            tar.extractall(tmpdir)
+            safe_extract_tar(tar, tmpdir)
 
         extracted = [d for d in os.listdir(tmpdir) if os.path.isdir(os.path.join(tmpdir, d)) and d != "__MACOSX"]
         if not extracted:

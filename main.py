@@ -1,9 +1,7 @@
 import os
-import re
 import tarfile
 import requests
 import tempfile
-import shutil
 import librosa
 import soundfile as sf
 import numpy as np
@@ -37,10 +35,19 @@ for e in engines:
 # DOWNLOAD UTILS
 # =========================
 
+def safe_extract_tar(tar: tarfile.TarFile, path: str) -> None:
+    base_path = os.path.abspath(path)
+    for member in tar.getmembers():
+        target_path = os.path.abspath(os.path.join(base_path, member.name))
+        if os.path.commonpath([base_path, target_path]) != base_path:
+            raise ValueError(f"Unsafe path in archive: {member.name}")
+    tar.extractall(path)
+
 def get_archive_links():
     """Fetch all .tgz archive links from VoxForge"""
     try:
         r = requests.get(BASE_URL, timeout=10)
+        r.raise_for_status()
         soup = BeautifulSoup(r.text, "html.parser")
         links = []
         for a in soup.find_all("a"):
@@ -56,6 +63,7 @@ def download_file(url, dst):
     """Download file from URL"""
     try:
         r = requests.get(url, stream=True, timeout=30)
+        r.raise_for_status()
         with open(dst, "wb") as f:
             for chunk in r.iter_content(1024 * 1024):
                 if chunk:
@@ -64,37 +72,40 @@ def download_file(url, dst):
         print(f"Warning: failed to download {url}:", e)
         raise
 
-# =========================
-# LOAD TTS
-# =========================
-
-print("Loading TTS models...")
-
 silero_model = None
 silero_utils = None
 coqui = None
+_tts_loaded = False
 
-try:
-    silero_model, silero_utils = torch.hub.load(
-        repo_or_dir='snakers4/silero-models',
-        model='silero_tts',
-        language='ru',
-        speaker='v3_1_ru'
-    )
-    print("✅ Silero TTS loaded")
-except Exception as e:
-    print("⚠️  Failed to load Silero TTS:", str(e)[:100])
+def ensure_tts_loaded():
+    global silero_model, silero_utils, coqui, _tts_loaded
+    if _tts_loaded:
+        return
+    _tts_loaded = True
 
-try:
+    print("Loading TTS models...")
+
     try:
-        from TTS.api import TTS
-    except ImportError:
-        from tts.api import TTS
-    
-    coqui = TTS(model_name="tts_models/ru/v3_1/ru_v3_1", progress_bar=False, gpu=False)
-    print("✅ Coqui TTS loaded")
-except Exception as e:
-    print("⚠️  Failed to load Coqui TTS:", str(e)[:100])
+        silero_model, silero_utils = torch.hub.load(
+            repo_or_dir='snakers4/silero-models',
+            model='silero_tts',
+            language='ru',
+            speaker='v3_1_ru'
+        )
+        print("✅ Silero TTS loaded")
+    except Exception as e:
+        print("⚠️  Failed to load Silero TTS:", str(e)[:100])
+
+    try:
+        try:
+            from TTS.api import TTS
+        except ImportError:
+            from tts.api import TTS
+
+        coqui = TTS(model_name="tts_models/ru/v3_1/ru_v3_1", progress_bar=False, gpu=False)
+        print("✅ Coqui TTS loaded")
+    except Exception as e:
+        print("⚠️  Failed to load Coqui TTS:", str(e)[:100])
 
 # RUSLAN & M-AILABS можно подключить аналогично через Coqui
 # если у тебя есть их checkpoint — просто добавь model_name
@@ -139,6 +150,7 @@ def generate_tts(engine, text):
     # don't attempt generation on empty or whitespace-only prompt
     if not text or not text.strip():
         return None
+    ensure_tts_loaded()
     try:
         if engine == "silero":
             if silero_model is None:
@@ -150,7 +162,7 @@ def generate_tts(engine, text):
             )
             if hasattr(audio, "numpy"):
                 audio = audio.numpy()
-            audio = librosa.resample(audio, 48000, TARGET_SR)
+            audio = librosa.resample(audio, orig_sr=48000, target_sr=TARGET_SR)
 
         elif engine == "coqui":
             if coqui is None:
@@ -164,7 +176,7 @@ def generate_tts(engine, text):
             except Exception:
                 pass
             if src_sr != TARGET_SR:
-                audio = librosa.resample(audio, src_sr, TARGET_SR)
+                audio = librosa.resample(audio, orig_sr=src_sr, target_sr=TARGET_SR)
 
         else:
             # not implemented engines (ruslan, mailabs)
@@ -204,7 +216,7 @@ def main():
                 download_file(link, archive_path)
 
                 with tarfile.open(archive_path) as tar:
-                    tar.extractall(tmpdir)
+                    safe_extract_tar(tar, tmpdir)
 
                 extracted = os.listdir(tmpdir)
                 extracted = [d for d in extracted if os.path.isdir(os.path.join(tmpdir, d)) and d != "__MACOSX"]
@@ -219,14 +231,16 @@ def main():
 
                 # Load prompts
                 prompts = {}
-                prompts_path = os.path.join(etc_dir, "prompts.txt")
-                if os.path.exists(prompts_path):
-                    with open(prompts_path, encoding="utf-8", errors="ignore") as f:
-                        for line in f:
-                            parts = line.strip().split(" ", 1)
-                            if len(parts) == 2:
-                                key = os.path.basename(parts[0])
-                                prompts[key] = parts[1]
+                for prompt_file in ("PROMPTS", "prompts.txt"):
+                    prompts_path = os.path.join(etc_dir, prompt_file)
+                    if os.path.exists(prompts_path):
+                        with open(prompts_path, encoding="utf-8", errors="ignore") as f:
+                            for line in f:
+                                parts = line.strip().split(" ", 1)
+                                if len(parts) == 2:
+                                    key = os.path.basename(parts[0])
+                                    prompts[key] = parts[1]
+                        break
 
                 # если нет расшифровок / prompts пустой, пропускаем архив целиком
                 if not prompts:
