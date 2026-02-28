@@ -136,6 +136,9 @@ def save_wav(path, audio):
 # =========================
 
 def generate_tts(engine, text):
+    # don't attempt generation on empty or whitespace-only prompt
+    if not text or not text.strip():
+        return None
     try:
         if engine == "silero":
             if silero_model is None:
