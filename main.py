@@ -82,15 +82,16 @@ try:
         language='ru',
         speaker='v3_1_ru'
     )
-    print("Silero TTS loaded")
+    print("✅ Silero TTS loaded")
 except Exception as e:
-    print("Warning: failed to load Silero TTS:", e)
+    print("⚠️  Failed to load Silero TTS:", str(e)[:100])
 
 try:
-    coqui = TTS(model_name="tts_models/ru/v3_1/ru_v3_1", progress_bar=False)
-    print("Coqui TTS loaded")
+    from TTS.api import TTS
+    coqui = TTS(model_name="tts_models/ru/v3_1/ru_v3_1", progress_bar=False, gpu=False)
+    print("✅ Coqui TTS loaded")
 except Exception as e:
-    print("Warning: failed to load Coqui TTS:", e)
+    print("⚠️  Failed to load Coqui TTS:", str(e)[:100])
 
 # RUSLAN & M-AILABS можно подключить аналогично через Coqui
 # если у тебя есть их checkpoint — просто добавь model_name
