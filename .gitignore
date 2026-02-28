@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.py[cod]
+.env
+.venv/
+
+# Data
+data/
+voxforge_raw/
+
+# Mac
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
