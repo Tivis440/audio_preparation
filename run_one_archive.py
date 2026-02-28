@@ -12,8 +12,38 @@ def run_one(limit_utts=5):
         print("No archive links found")
         return
 
-    link = links[0]
-    print("Using archive:", link)
+    # find first archive that contains any transcripts (look for PROMPTS or prompts.txt)
+    link = None
+    for l in links[:10]:  # only check first few archives to keep the test quick
+        print("Checking archive for transcripts:", l)
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "tmp.tgz")
+            download_file(l, path)
+            with tarfile.open(path) as tar:
+                tar.extractall(tmpdir)
+            extracted = [d for d in os.listdir(tmpdir) if os.path.isdir(os.path.join(tmpdir, d)) and d != "__MACOSX"]
+            if not extracted:
+                continue
+            etc = os.path.join(tmpdir, extracted[0], "etc")
+            prompts = {}
+            # check both uppercase and lowercase prompt filenames
+            for fname in ["PROMPTS", "prompts.txt"]:
+                pfile = os.path.join(etc, fname)
+                if os.path.exists(pfile):
+                    with open(pfile, encoding="utf-8", errors="ignore") as f:
+                        for line in f:
+                            parts = line.strip().split(" ", 1)
+                            if len(parts) == 2:
+                                key = os.path.basename(parts[0])
+                                prompts[key] = parts[1]
+                    break
+            if prompts:
+                link = l
+                print("Selected archive with transcripts:", link)
+                break
+    if link is None:
+        print("No archive with transcripts found")
+        return
 
     utt_counter = 0
     metadata = []
@@ -35,13 +65,16 @@ def run_one(limit_utts=5):
         etc_dir = os.path.join(tmpdir, speaker_id, "etc")
 
         prompts = {}
-        prompts_path = os.path.join(etc_dir, "prompts.txt")
-        if os.path.exists(prompts_path):
-            with open(prompts_path, encoding="utf-8", errors="ignore") as f:
-                for line in f:
-                    parts = line.strip().split(" ", 1)
-                    if len(parts) == 2:
-                        prompts[parts[0]] = parts[1]
+        # support both PROMPTS and prompts.txt
+        for fname in ["PROMPTS", "prompts.txt"]:
+            prompts_path = os.path.join(etc_dir, fname)
+            if os.path.exists(prompts_path):
+                with open(prompts_path, encoding="utf-8", errors="ignore") as f:
+                    for line in f:
+                        parts = line.strip().split(" ", 1)
+                        if len(parts) == 2:
+                            prompts[parts[0]] = parts[1]
+                break
 
         if not prompts:
             print("No transcripts in archive, skipping")

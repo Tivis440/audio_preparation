@@ -225,7 +225,8 @@ def main():
                         for line in f:
                             parts = line.strip().split(" ", 1)
                             if len(parts) == 2:
-                                prompts[parts[0]] = parts[1]
+                                key = os.path.basename(parts[0])
+                                prompts[key] = parts[1]
 
                 # если нет расшифровок / prompts пустой, пропускаем архив целиком
                 if not prompts:
