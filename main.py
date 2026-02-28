@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 import torch
 from tqdm import tqdm
-from TTS.api import TTS
 from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 
@@ -87,7 +86,11 @@ except Exception as e:
     print("⚠️  Failed to load Silero TTS:", str(e)[:100])
 
 try:
-    from TTS.api import TTS
+    try:
+        from TTS.api import TTS
+    except ImportError:
+        from tts.api import TTS
+    
     coqui = TTS(model_name="tts_models/ru/v3_1/ru_v3_1", progress_bar=False, gpu=False)
     print("✅ Coqui TTS loaded")
 except Exception as e:
