@@ -73,7 +73,9 @@ def run_one(limit_utts=5):
                     for line in f:
                         parts = line.strip().split(" ", 1)
                         if len(parts) == 2:
-                            prompts[parts[0]] = parts[1]
+                            # normalize the key the same way the main pipeline does
+                            key = os.path.basename(parts[0])
+                            prompts[key] = parts[1]
                 break
 
         if not prompts:
