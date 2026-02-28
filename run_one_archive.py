@@ -43,6 +43,10 @@ def run_one(limit_utts=5):
                     if len(parts) == 2:
                         prompts[parts[0]] = parts[1]
 
+        if not prompts:
+            print("No transcripts in archive, skipping")
+            return
+
         os.makedirs(OUT_REAL, exist_ok=True)
 
         for wav_file in os.listdir(wav_dir):

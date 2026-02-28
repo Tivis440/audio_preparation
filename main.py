@@ -227,6 +227,11 @@ def main():
                             if len(parts) == 2:
                                 prompts[parts[0]] = parts[1]
 
+                # если нет расшифровок / prompts пустой, пропускаем архив целиком
+                if not prompts:
+                    print(f"Skipping archive {link} – no transcripts found")
+                    continue
+
                 if not os.path.isdir(wav_dir):
                     continue
 
