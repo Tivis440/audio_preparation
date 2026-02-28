@@ -24,17 +24,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-Инициализация репозитория и пуш на GitHub:
-
-```bash
-git init
-git add .
-git commit -m "Initial commit"
-# создать репозиторий на GitHub вручную или через gh/API, затем:
-git remote add origin git@github.com:<user>/<repo>.git
-git branch -M main
-git push -u origin main
-```
 
 Примечания:
 - Скрипт автоматически качает архивы с VoxForge (можно настроить `MAX_FILES` и `MIN_SPEAKERS`)
