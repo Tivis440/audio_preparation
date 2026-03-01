@@ -31,6 +31,12 @@ engines = ["silero", "coqui", "ruslan", "mailabs"]
 for e in engines:
     os.makedirs(os.path.join(OUT_FAKE, e), exist_ok=True)
 
+COQUI_MODEL_CANDIDATES = [
+    "tts_models/ru/v3_1/ru_v3_1",
+    "tts_models/multilingual/multi-dataset/xtts_v2",
+]
+COQUI_LANGUAGE = "ru"
+
 # =========================
 # DOWNLOAD UTILS
 # =========================
@@ -75,10 +81,12 @@ def download_file(url, dst):
 silero_model = None
 silero_utils = None
 coqui = None
+coqui_language = None
+coqui_speaker = None
 _tts_loaded = False
 
 def ensure_tts_loaded():
-    global silero_model, silero_utils, coqui, _tts_loaded
+    global silero_model, silero_utils, coqui, coqui_language, coqui_speaker, _tts_loaded
     if _tts_loaded:
         return
     _tts_loaded = True
@@ -97,13 +105,25 @@ def ensure_tts_loaded():
         print("⚠️  Failed to load Silero TTS:", str(e)[:100])
 
     try:
-        try:
-            from TTS.api import TTS
-        except ImportError:
-            from tts.api import TTS
-
-        coqui = TTS(model_name="tts_models/ru/v3_1/ru_v3_1", progress_bar=False, gpu=False)
-        print("✅ Coqui TTS loaded")
+        from TTS.api import TTS
+        for model_name in COQUI_MODEL_CANDIDATES:
+            try:
+                coqui = TTS(model_name=model_name, progress_bar=False, gpu=False)
+                if "multilingual" in model_name:
+                    coqui_language = COQUI_LANGUAGE
+                    speakers = getattr(coqui, "speakers", None) or []
+                    if speakers:
+                        coqui_speaker = speakers[0]
+                print(f"✅ Coqui TTS loaded ({model_name})")
+                break
+            except Exception as e:
+                print(f"⚠️  Failed to initialize Coqui model {model_name}:", str(e)[:100])
+                coqui = None
+    except ModuleNotFoundError as e:
+        if e.name == "torchaudio":
+            print("⚠️  Failed to load Coqui TTS: missing dependency 'torchaudio'. Install requirements again.")
+        else:
+            print("⚠️  Failed to load Coqui TTS:", str(e)[:100])
     except Exception as e:
         print("⚠️  Failed to load Coqui TTS:", str(e)[:100])
 
@@ -167,7 +187,15 @@ def generate_tts(engine, text):
         elif engine == "coqui":
             if coqui is None:
                 return None
-            audio = coqui.tts(text)
+            kwargs = {"text": text}
+            if coqui_language:
+                kwargs["language"] = coqui_language
+            if coqui_speaker:
+                kwargs["speaker"] = coqui_speaker
+            try:
+                audio = coqui.tts(**kwargs)
+            except TypeError:
+                audio = coqui.tts(text)
             audio = np.array(audio)
             # try to get sample rate from model utils if available
             src_sr = 22050
