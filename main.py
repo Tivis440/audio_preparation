@@ -23,7 +23,7 @@ TARGET_SR = 16000
 MIN_DUR = 2.5
 MAX_DUR = 8.0
 MIN_RMS = 0.003
-MAX_FILES = 5000
+MAX_FILES = 2000  # reduced from 5000 at user's request
 MIN_SPEAKERS = 100
 
 os.makedirs(OUT_REAL, exist_ok=True)
