@@ -22,6 +22,7 @@ OUT_FAKE = "data/fake"
 TARGET_SR = 16000
 MIN_DUR = 2.5
 MAX_DUR = 8.0
+MIN_RMS = 0.003
 MAX_FILES = 5000
 MIN_SPEAKERS = 100
 
@@ -151,7 +152,7 @@ def process_audio(path):
         if has_clipping(y):
             return None
 
-        if rms(y) < 0.01:
+        if rms(y) < MIN_RMS:
             return None
 
         return y
@@ -222,7 +223,14 @@ def generate_tts(engine, text):
 # MAIN PIPELINE
 # =========================
 
-def main():
+def main(output_base=None):
+    # allow caller to override where data is written (useful for Colab/Drive)
+    if output_base:
+        # mirror old constants by updating the global paths
+        global OUT_REAL, OUT_FAKE
+        OUT_REAL = os.path.join(output_base, "real")
+        OUT_FAKE = os.path.join(output_base, "fake")
+
     archive_links = get_archive_links()
     if not archive_links:
         print("Error: no archive links found")
@@ -252,7 +260,6 @@ def main():
                     continue
 
                 speaker_id = extracted[0]
-                speakers.add(speaker_id)
 
                 wav_dir = os.path.join(tmpdir, speaker_id, "wav")
                 etc_dir = os.path.join(tmpdir, speaker_id, "etc")
@@ -290,6 +297,9 @@ def main():
                     if audio is None:
                         continue
 
+                    if speaker_id not in speakers:
+                        speakers.add(speaker_id)
+
                     utt_id = f"utt_{utt_counter:06d}"
                     real_out = os.path.join(OUT_REAL, f"{utt_id}.wav")
                     sf.write(real_out, audio, TARGET_SR, subtype="PCM_16")
@@ -321,11 +331,23 @@ def main():
     # Save metadata
     if metadata:
         df = pd.DataFrame(metadata)
-        df.to_csv("metadata.csv", index=False)
+        outpath = "metadata.csv"
+        if output_base:
+            outpath = os.path.join(output_base, "metadata.csv")
+        df.to_csv(outpath, index=False)
 
     print("Done.")
     print(f"Files: {utt_counter}")
     print(f"Speakers: {len(speakers)}")
 
 if __name__ == "__main__":
-    main()
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Download and prepare VoxForge audio")
+    parser.add_argument(
+        "--output-dir", "-o",
+        help="base directory where data/real, data/fake and metadata.csv will be placed",
+        default=None,
+    )
+    args = parser.parse_args()
+    main(output_base=args.output_dir)

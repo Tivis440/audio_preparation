@@ -16,7 +16,7 @@ from main import (
 import soundfile as sf
 
 
-def run_one(limit_utts=5):
+def run_one(limit_utts=5, output_base=None):
     links = get_archive_links()
     if not links:
         print("No archive links found")
@@ -56,6 +56,10 @@ def run_one(limit_utts=5):
         return
 
     utt_counter = 0
+    if output_base:
+        global OUT_REAL, OUT_FAKE
+        OUT_REAL = os.path.join(output_base, "real")
+        OUT_FAKE = os.path.join(output_base, "fake")
     metadata = []
 
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -127,10 +131,19 @@ def run_one(limit_utts=5):
     if metadata:
         import pandas as pd
         df = pd.DataFrame(metadata)
-        df.to_csv("metadata_one_archive.csv", index=False)
+        outpath = "metadata_one_archive.csv"
+        if output_base:
+            outpath = os.path.join(output_base, "metadata_one_archive.csv")
+        df.to_csv(outpath, index=False)
 
     print("Done. Processed:", utt_counter)
 
 
 if __name__ == '__main__':
-    run_one(limit_utts=5)
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Test single archive")
+    parser.add_argument("--limit", "-l", type=int, default=5, help="number of utterances to process")
+    parser.add_argument("--output-dir", "-o", help="save outputs under this base directory", default=None)
+    args = parser.parse_args()
+    run_one(limit_utts=args.limit, output_base=args.output_dir)

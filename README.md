@@ -26,6 +26,9 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
+You can also specify a custom base directory (e.g. a mounted Google Drive) with
+`--output-dir /path/to/drive` and the script will create `real`/`fake`
+subfolders there and write `metadata.csv` alongside.
 
 
 Примечания:
@@ -38,3 +41,4 @@ python main.py
 В репозитории также есть `run_one_archive.py` — вспомогательный скрипт
 для быстрого теста одного архива; он автоматически пропускает пакеты без
 расшифровок.
+Он поддерживает тот же параметр `--output-dir`.
